@@ -1,7 +1,9 @@
 from itertools import chain
 from functools import reduce
 from random import randint
+from math import floor
 import uuid
+import os
 from PIL import Image, ImageDraw
 
 EMPTY = 0
@@ -56,6 +58,7 @@ class Nonogram(object):
             for number in self.row_numbers[index]:
                 row_square_number += number
             print(str(filled_count) + " - " + str(row_square_number) + " " + str(group_count) + " - " + str(len(self.row_numbers[index])))
+            #TODO it will count len((0,)) to be one, needs to be 0
             score += SQUARE_PENALTY * abs(filled_count - row_square_number) + GROUP_PENALTY * abs(group_count - len(self.row_numbers[index]))
         return score
 
@@ -69,6 +72,7 @@ class Nonogram(object):
         self.nonogram_size = nonogram_size
         self.grid = Nonogram.create_rand_grid(nonogram_size)
         self.fitness = Nonogram.calc_fitness(self)
+        self.probability = 0
 
     def draw_nonogram(self):
         """ Create an PNG format image of grid"""
@@ -92,11 +96,32 @@ def create_population(board_size, population_size):
     """Returns a list of randomly filled Nonogram puzzle objects"""
     return [Nonogram(board_size) for x in range(0, population_size)]
 
+def reject_unfit(population, reject_percentage):
+    """Returns a new list with the most fit individuals in the reject_percentage"""
+    population.sort(key=lambda individual: individual.fitness)
+    return population[0:floor((reject_percentage / 100) * len(population))]
+
 def ga_algorithm(board_size, population_size):
     """ga algorithm to find a solution for Nonogram puzzle"""
-    for index, board in enumerate(create_population(board_size, population_size)):
+    population = create_population(board_size, population_size)
+    for index, board in enumerate(population):
+        # Draw a picture of each individual in initial population
         image = board.draw_nonogram()
-        image.save("%s_%d.png" % ("nono", index))
+        path = 'initial_population/'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        image.save(path + "%s_%d.png" % ("nono_init", index))
+        print("Board #" + str(index )+ " " + str(board.fitness))
+    print("Rejectin unfit candidates \n")
+    new_population = reject_unfit(population, 50)
+    for index, board in enumerate(new_population):
+        # Draw a picture of each individual in initial population
+        image = board.draw_nonogram()
+        path = 'fit_population/'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        image.save(path + "%s_%d.png" % ("new_nono", index))
         print("Board #" + str(index )+ " " + str(board.fitness))
 
-ga_algorithm(3, 10)
+
+ga_algorithm(3, 4)
