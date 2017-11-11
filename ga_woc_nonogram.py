@@ -5,6 +5,8 @@ from math import floor
 import uuid
 import os
 from PIL import Image, ImageDraw
+import random
+import numpy as np
 
 EMPTY = 0
 FILLED = 1
@@ -101,6 +103,22 @@ def reject_unfit(population, reject_percentage):
     population.sort(key=lambda individual: individual.fitness)
     return population[0:floor((reject_percentage / 100) * len(population))]
 
+def crossover(population, population_size, board_size):
+    father = population[random.randint(0, population_size -1)]
+    child = father
+    mother = population[random.randint(0, population_size -1 )]
+    crossover_index = random.randint(0, population_size)
+    father1D = np.ravel(father.grid)
+    mother1D = np.ravel(mother.grid)
+    begin_father = father1D[:crossover_index]
+    father = begin_father.tolist()
+    end_mother = mother1D[crossover_index:]
+    mother = end_mother.tolist()
+    baby = father + mother
+    chunks = [baby[x:x + board_size] for x in range(0, len(baby), board_size)]
+    child.grid = chunks
+    return child
+
 def ga_algorithm(board_size, population_size):
     """ga algorithm to find a solution for Nonogram puzzle"""
     population = create_population(board_size, population_size)
@@ -114,6 +132,11 @@ def ga_algorithm(board_size, population_size):
         print("Board #" + str(index )+ " " + str(board.fitness))
     print("Rejectin unfit candidates \n")
     new_population = reject_unfit(population, 50)
+    new_population_size = population_size / 2
+    while new_population_size < population_size:
+        child = crossover(new_population, new_population_size, board_size)
+        new_population.append(child)
+        new_population_size += 1
     for index, board in enumerate(new_population):
         # Draw a picture of each individual in initial population
         image = board.draw_nonogram()
@@ -124,4 +147,4 @@ def ga_algorithm(board_size, population_size):
         print("Board #" + str(index )+ " " + str(board.fitness))
 
 
-ga_algorithm(3, 4)
+ga_algorithm(3, 6)
