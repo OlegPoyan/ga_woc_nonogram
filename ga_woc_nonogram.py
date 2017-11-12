@@ -119,6 +119,22 @@ def crossover(population, population_size, board_size):
     child.grid = chunks
     return child
 
+def mutation(population, population_size, board_size):
+    mutation_rate = 0.01
+    for index, board in enumerate(population):
+        mutant = population[index]
+        if random.random() <= mutation_rate:
+            mutant1D = np.ravel(mutant.grid)
+            j = random.randint(0, len(mutant1D) - 1)
+            if mutant1D[j] == 1:
+                mutant1D[j] = 0
+            else:
+                mutant1D[j] = 1
+            mutant1D = mutant1D.tolist()
+            chunks = [mutant1D[x:x + board_size] for x in range(0, len(mutant1D), board_size)]
+            mutant.grid = chunks
+
+
 def ga_algorithm(board_size, population_size):
     """ga algorithm to find a solution for Nonogram puzzle"""
     population = create_population(board_size, population_size)
@@ -137,6 +153,7 @@ def ga_algorithm(board_size, population_size):
         child = crossover(new_population, new_population_size, board_size)
         new_population.append(child)
         new_population_size += 1
+    mutation(new_population, population_size, board_size)
     for index, board in enumerate(new_population):
         # Draw a picture of each individual in initial population
         image = board.draw_nonogram()
