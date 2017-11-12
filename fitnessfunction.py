@@ -10,7 +10,7 @@ def fitness(board):
     # and number of on squares needed compared to how many found
     for i in range (0, board.nonogram_size):
         squareCount = 0  
-      groupCount = 0
+    	groupCount = 0
         squares = 0
         groups = 0
         for y in board.row_numbers[i]:
