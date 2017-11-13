@@ -1,5 +1,6 @@
 from functools import reduce
-from random import randint, choice, random
+from itertools import chain
+from random import randint, random, uniform
 from math import floor
 import uuid
 import os
@@ -10,6 +11,7 @@ EMPTY = 0
 FILLED = 1
 POPULATION_SIZE = 6
 BOARD_SIZE = 3
+GEN_ITERATIONS = 10
 
 
 class Nonogram(object):
@@ -34,6 +36,16 @@ class Nonogram(object):
 
         return [[randint(0, 1) for x in range(0, grid_size)]
                 for y in range(0, grid_size)]
+
+    @staticmethod
+    def create_grid(square_list, grid_size):
+        """Returns 2d list with squares filled based on the binary string
+        square list"""
+
+        return [
+            square_list[i:i + grid_size]
+            for i in range(0, len(square_list), grid_size)
+        ]
 
     @staticmethod
     def calc_fitness(self):
@@ -63,9 +75,9 @@ class Nonogram(object):
                         group_flag = False
             for number in self.row_numbers[index]:
                 row_square_number += number
-            print(
-                str(filled_count) + " - " + str(row_square_number) + " " +
-                str(group_count) + " - " + str(len(self.row_numbers[index])))
+            # print(
+            #     str(filled_count) + " - " + str(row_square_number) + " " +
+            #     str(group_count) + " - " + str(len(self.row_numbers[index])))
             # TODO it will count len((0,)) to be one, needs to be 0
             score += SQUARE_PENALTY * abs(
                 filled_count - row_square_number) + GROUP_PENALTY * abs(
@@ -91,10 +103,10 @@ class Nonogram(object):
                         group_flag = False
             for number in self.column_numbers[index]:
                 column_square_number += number
-            print(
-                str(filled_count) + " - " + str(column_square_number) + " " +
-                str(group_count) + " - " + str(
-                    len(self.column_numbers[index])))
+            # print(
+            #     str(filled_count) + " - " + str(column_square_number) + " " +
+            #     str(group_count) + " - " + str(
+            #         len(self.column_numbers[index])))
             # TODO it will count len((0,)) to be one, needs to be 0
             score += SQUARE_PENALTY * abs(
                 filled_count - column_square_number) + GROUP_PENALTY * abs(
@@ -102,7 +114,7 @@ class Nonogram(object):
 
         return score
 
-    def __init__(self, nonogram_size):
+    def __init__(self, nonogram_size, square_list=None):
         """Return board with dimensions of size nonogram_size. row_numbers,
             column_number are hardcoded for now."""
         # create random id
@@ -111,9 +123,11 @@ class Nonogram(object):
         self.row_numbers = [(2, ), (2, ), (2, )]
         self.column_numbers = [(1, 1), (3, ), (1, )]
         self.nonogram_size = nonogram_size
-        self.grid = Nonogram.create_rand_grid(nonogram_size)
+        if square_list is None:
+            self.grid = Nonogram.create_rand_grid(nonogram_size)
+        else:
+            self.grid = Nonogram.create_grid(square_list, nonogram_size)
         self.fitness = Nonogram.calc_fitness(self)
-        self.probability = 0
 
     def draw_nonogram(self):
         """ Create an PNG format image of grid"""
@@ -156,33 +170,49 @@ def calc_total_fit(population):
     return total_fitness_score
 
 
-def calculate_fit_ratio(population):
-    """ Assigns probability of being selected for mating for each individual
-    Nonogram object in the population """
-    total_fitness_score = calc_total_fit(population)
-    print(total_fitness_score)
-    for chromosome in population:
-        chromosome.probability = chromosome.fitness / total_fitness_score
-        print(chromosome.probability)
+def roulette_wheel_select(candidates):
+    """ Returns an individual from population and its index in a list.
+    The chance of being selected is proportional to the individual fitness."""
+    fitness_range = sum([chromosome.fitness for chromosome in candidates])
+    roulette_arrow = uniform(0, fitness_range)
+    current = 0
+    for index, chromosome in enumerate(candidates):
+        current += chromosome.fitness
+        if current > roulette_arrow:
+            return candidates.pop(index)
 
 
-def crossover(population, board_size):
-    # TODO: implement picking chromosome based on
-    # Nonogram.probability attribute
-    father = choice(population)
-    child = father
-    mother = choice(population)
-    crossover_index = randint(0, len(population))
-    father1D = np.ravel(father.grid)
-    mother1D = np.ravel(mother.grid)
-    begin_father = father1D[:crossover_index]
-    father = begin_father.tolist()
-    end_mother = mother1D[crossover_index:]
-    mother = end_mother.tolist()
-    baby = father + mother
-    chunks = [baby[x:x + board_size] for x in range(0, len(baby), board_size)]
-    child.grid = chunks
-    return child
+def mate(candidates, board_size):
+    """ Returns 2 offsprings by mating 2 randomly choosen candidates """
+    print("\nStarting crossover")
+    #print(candidates)
+
+    chromosome1 = list(
+        chain.from_iterable(roulette_wheel_select(candidates).grid))
+    chromosome2 = list(
+        chain.from_iterable(roulette_wheel_select(candidates).grid))
+
+    offspring1, offspring2 = single_point_crossover(chromosome1, chromosome2)
+    return Nonogram(
+        board_size, square_list=offspring1), Nonogram(
+            board_size, square_list=offspring2)
+
+
+def single_point_crossover(chromosome1, chromosome2):
+    """ Returns 2 chromosomes by randomly swapping genes """
+    print(chromosome1)
+    print(chromosome2)
+    chromosome_len = len(chromosome1)
+    crossover_point = randint(0, chromosome_len)
+    print(crossover_point)
+    offspring1 = chromosome1[0:crossover_point] + chromosome2[crossover_point:
+                                                              chromosome_len]
+    offspring2 = chromosome2[0:crossover_point] + chromosome1[crossover_point:
+                                                              chromosome_len]
+    print("CROSSOVER RESULT")
+    print(offspring1)
+    print(offspring2)
+    return offspring1, offspring2
 
 
 def mutation(population, population_size, board_size):
@@ -207,22 +237,25 @@ def mutation(population, population_size, board_size):
 def ga_algorithm(board_size, population_size):
     """ga algorithm to find a solution for Nonogram puzzle"""
     population = create_population(board_size, population_size)
-    draw_population(population, 'initial_population/', 'nono_init')
+    draw_population(population, 'pics/gen_0/population/', 'nono')
 
-    print("Rejecting unfit candidates \n")
-    population = reject_unfit(population, 50)
-    print("New Population size: " + str(len(population)))
-    calculate_fit_ratio(population)
+    for i in range(0, GEN_ITERATIONS):
 
-    draw_population(population, 'fit_population/', 'fit_nono')
+        print("Rejecting unfit candidates \n")
+        population = reject_unfit(population, 50)
+        path = 'pics/gen_' + str(i) + '/'
+        draw_population(population, path + 'fit_population/', 'fit_nono')
 
-    # Create new chromosomes until reaching POPUlATION_SIZE
-    new_population = []
-    for i in range(population_size):
-        new_population.append(
-            crossover(population, board_size))
+        # Create new chromosomes until reaching POPUlATION_SIZE
+        next_gen = []
+        while len(next_gen) < population_size:
+            next_gen.extend(mate(population[:], board_size))
+        print("NEW POPULATION")
+        path = 'pics/gen_' + str(i + 1) + '/'
+        draw_population(next_gen, path + 'population/', 'nono')
+        population = next_gen
 
-    mutation(new_population, population_size, board_size)
+    # mutation(next_gen, population_size, board_size)
 
 
 def draw_population(population, path, filename):
@@ -230,7 +263,7 @@ def draw_population(population, path, filename):
         # Draw a picture of each individual in initial population
         image = board.draw_nonogram()
         if not os.path.exists(path):
-            os.mkdir(path)
+            os.makedirs(path)
         image.save(path + filename + "_%d.png" % index)
         print("Board #" + str(index) + " " + str(board.fitness))
 
