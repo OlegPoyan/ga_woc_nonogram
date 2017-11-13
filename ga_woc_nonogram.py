@@ -1,14 +1,15 @@
 from functools import reduce
-from random import randint
+from random import randint, choice, random
 from math import floor
 import uuid
 import os
 from PIL import Image, ImageDraw
-import random
 import numpy as np
 
 EMPTY = 0
 FILLED = 1
+POPULATION_SIZE = 6
+BOARD_SIZE = 3
 
 
 class Nonogram(object):
@@ -69,6 +70,36 @@ class Nonogram(object):
             score += SQUARE_PENALTY * abs(
                 filled_count - row_square_number) + GROUP_PENALTY * abs(
                     group_count - len(self.row_numbers[index]))
+
+        matrix = np.array(self.grid)
+        for index, column in enumerate(matrix.T):
+            group_flag = False
+            filled_count = 0
+            group_count = 0
+            column_square_number = 0
+
+            for square in column:
+                # Calculate number of groups and number of FILLED squares
+                # present in the column
+                if square == FILLED:
+                    if not group_flag:
+                        group_flag = True
+                        group_count += 1
+                    filled_count += 1
+                else:
+                    if group_flag:
+                        group_flag = False
+            for number in self.column_numbers[index]:
+                column_square_number += number
+            print(
+                str(filled_count) + " - " + str(column_square_number) + " " +
+                str(group_count) + " - " + str(
+                    len(self.column_numbers[index])))
+            # TODO it will count len((0,)) to be one, needs to be 0
+            score += SQUARE_PENALTY * abs(
+                filled_count - column_square_number) + GROUP_PENALTY * abs(
+                    group_count - len(self.column_numbers[index]))
+
         return score
 
     def __init__(self, nonogram_size):
@@ -76,6 +107,7 @@ class Nonogram(object):
             column_number are hardcoded for now."""
         # create random id
         self.nonogram_id = uuid.uuid4()
+        print("Creating board id: " + str(self.nonogram_id))
         self.row_numbers = [(2, ), (2, ), (2, )]
         self.column_numbers = [(1, 1), (3, ), (1, )]
         self.nonogram_size = nonogram_size
@@ -116,11 +148,31 @@ def reject_unfit(population, reject_percentage):
     return population[0:floor((reject_percentage / 100) * len(population))]
 
 
-def crossover(population, population_size, board_size):
-    father = population[random.randint(0, population_size - 1)]
+def calc_total_fit(population):
+    """ Returns total fitness score for the population."""
+    total_fitness_score = 0
+    for chromosome in population:
+        total_fitness_score += chromosome.fitness
+    return total_fitness_score
+
+
+def calculate_fit_ratio(population):
+    """ Assigns probability of being selected for mating for each individual
+    Nonogram object in the population """
+    total_fitness_score = calc_total_fit(population)
+    print(total_fitness_score)
+    for chromosome in population:
+        chromosome.probability = chromosome.fitness / total_fitness_score
+        print(chromosome.probability)
+
+
+def crossover(population, board_size):
+    # TODO: implement picking chromosome based on
+    # Nonogram.probability attribute
+    father = choice(population)
     child = father
-    mother = population[random.randint(0, population_size - 1)]
-    crossover_index = random.randint(0, population_size)
+    mother = choice(population)
+    crossover_index = randint(0, len(population))
     father1D = np.ravel(father.grid)
     mother1D = np.ravel(mother.grid)
     begin_father = father1D[:crossover_index]
@@ -132,11 +184,12 @@ def crossover(population, population_size, board_size):
     child.grid = chunks
     return child
 
+
 def mutation(population, population_size, board_size):
     mutation_rate = 0.01
     for index, board in enumerate(population):
         mutant = population[index]
-        if random.random() <= mutation_rate:
+        if random() <= mutation_rate:
             mutant1D = np.ravel(mutant.grid)
             j = random.randint(0, len(mutant1D) - 1)
             if mutant1D[j] == 1:
@@ -144,37 +197,42 @@ def mutation(population, population_size, board_size):
             else:
                 mutant1D[j] = 1
             mutant1D = mutant1D.tolist()
-            chunks = [mutant1D[x:x + board_size] for x in range(0, len(mutant1D), board_size)]
+            chunks = [
+                mutant1D[x:x + board_size]
+                for x in range(0, len(mutant1D), board_size)
+            ]
             mutant.grid = chunks
 
 
 def ga_algorithm(board_size, population_size):
     """ga algorithm to find a solution for Nonogram puzzle"""
     population = create_population(board_size, population_size)
+    draw_population(population, 'initial_population/', 'nono_init')
+
+    print("Rejecting unfit candidates \n")
+    population = reject_unfit(population, 50)
+    print("New Population size: " + str(len(population)))
+    calculate_fit_ratio(population)
+
+    draw_population(population, 'fit_population/', 'fit_nono')
+
+    # Create new chromosomes until reaching POPUlATION_SIZE
+    new_population = []
+    for i in range(population_size):
+        new_population.append(
+            crossover(population, board_size))
+
+    mutation(new_population, population_size, board_size)
+
+
+def draw_population(population, path, filename):
     for index, board in enumerate(population):
         # Draw a picture of each individual in initial population
         image = board.draw_nonogram()
-        path = 'initial_population/'
         if not os.path.exists(path):
             os.mkdir(path)
-        image.save(path + "%s_%d.png" % ("nono_init", index))
-        print("Board #" + str(index) + " " + str(board.fitness))
-    print("Rejectin unfit candidates \n")
-    new_population = reject_unfit(population, 50)
-    new_population_size = population_size / 2
-    while new_population_size < population_size:
-        child = crossover(new_population, new_population_size, board_size)
-        new_population.append(child)
-        new_population_size += 1
-    mutation(new_population, population_size, board_size)
-    for index, board in enumerate(new_population):
-        # Draw a picture of each individual in initial population
-        image = board.draw_nonogram()
-        path = 'fit_population/'
-        if not os.path.exists(path):
-            os.mkdir(path)
-        image.save(path + "%s_%d.png" % ("new_nono", index))
+        image.save(path + filename + "_%d.png" % index)
         print("Board #" + str(index) + " " + str(board.fitness))
 
 
-ga_algorithm(3, 6)
+ga_algorithm(BOARD_SIZE, POPULATION_SIZE)
