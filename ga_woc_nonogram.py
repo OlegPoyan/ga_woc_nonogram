@@ -9,7 +9,7 @@ import numpy as np
 
 EMPTY = 0
 FILLED = 1
-POPULATION_SIZE = 5
+POPULATION_SIZE = 10
 BOARD_SIZE = 3
 GEN_ITERATIONS = 10
 
@@ -250,9 +250,10 @@ def ga_algorithm(board_size, population_size):
     draw_population(population, 'pics/gen_0/population/', 'nono')
 
     for i in range(0, GEN_ITERATIONS):
+        print("gen_" + str(i))
         print("Rejecting unfit candidates \n")
         population.sort(key=lambda individual: individual.fitness)
-        population = reject_unfit(population, 50)
+        population = reject_unfit(population, 80)
         path = 'pics/gen_' + str(i) + '/'
         draw_population(population, path + 'fit_population/', 'fit_nono')
 
