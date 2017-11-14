@@ -1,4 +1,4 @@
-def population_metrics(boards):
+def population_metrics(boards, generation):
     population = len(boards)
     best = boards[0].fitness
     worst = boards[population-1]
@@ -17,4 +17,8 @@ def population_metrics(boards):
         median = (boards[population/2].fitness + boards[population/2+1].fitness) / 2
     else:
         median = boards[population/2].fitness
-    np.std(fitnesses, ddof = 0)
+    standard_deviation = np.std(fitnesses, ddof = 1)
+    print (standard_deviation)
+    file = open('nonogram.log', 'a')
+    file.write (generation + " " + best + " " + average + " " + worst + " " + median + " " + standard_deviation)
+    file.close()
