@@ -9,9 +9,10 @@ import numpy as np
 
 EMPTY = 0
 FILLED = 1
-POPULATION_SIZE = 10
+POPULATION_SIZE = 20
 BOARD_SIZE = 3
 GEN_ITERATIONS = 10
+REJECTION_RATE = 80
 
 SQUARE_PENALTY = 1
 GROUP_PENALTY = 6
@@ -19,7 +20,6 @@ GROUP_PENALTY = 6
 
 class Nonogram(object):
     """A board that represents n x n board for nonogram puzzle.
-
     Attributes:
         nonogram_id: unique identifier of the Nonogram
         row_numbers: array of tuples. Tuples represent each row's number
@@ -150,6 +150,32 @@ class Nonogram(object):
         return image
 
 
+def population_metrics(boards, generation):
+    population = len(boards)
+    best = boards[0].fitness
+    worst = boards[population-1].fitness
+    average = 0
+    median = 0
+    buffer = 0
+    standard_deviation = 0
+    fitnesses = []
+    # find average
+    for pop_size in range (0, population):
+        buffer += boards[pop_size].fitness
+        fitnesses.append(boards[pop_size].fitness)
+    average = buffer / population
+    # calculate median
+    if (population%2 == 0):
+        median = (boards[int(population/2)].fitness + boards[int(population/2+1)].fitness) / 2
+    else:
+        median = boards[int(population/2)].fitness
+    standard_deviation = np.std(fitnesses, ddof = 1)
+    print (standard_deviation)
+    file = open('nonogram.log', 'a')
+    line_of_text = str(generation) + " " + str(best) + " " + str(average) + " " + str(worst) + " " + str(median) + " " + str(standard_deviation) + "\n"
+    file.write (line_of_text)
+    file.close()
+
 def create_population(board_size, population_size):
     """Returns a list of randomly filled Nonogram puzzle objects"""
     return [Nonogram(board_size) for x in range(0, population_size)]
@@ -250,10 +276,10 @@ def ga_algorithm(board_size, population_size):
     draw_population(population, 'pics/gen_0/population/', 'nono')
 
     for i in range(0, GEN_ITERATIONS):
-        print("gen_" + str(i))
         print("Rejecting unfit candidates \n")
         population.sort(key=lambda individual: individual.fitness)
-        population = reject_unfit(population, 80)
+        population_metrics(population, i)
+        population = reject_unfit(population, REJECTION_RATE)
         path = 'pics/gen_' + str(i) + '/'
         draw_population(population, path + 'fit_population/', 'fit_nono')
 
