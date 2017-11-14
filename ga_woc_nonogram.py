@@ -1,6 +1,6 @@
 from functools import reduce
 from itertools import chain
-from random import randint, random, uniform
+from random import randint, random, uniform, expovariate, choice
 from math import floor
 import uuid
 import os
@@ -9,9 +9,12 @@ import numpy as np
 
 EMPTY = 0
 FILLED = 1
-POPULATION_SIZE = 6
+POPULATION_SIZE = 5
 BOARD_SIZE = 3
 GEN_ITERATIONS = 10
+
+SQUARE_PENALTY = 1
+GROUP_PENALTY = 6
 
 
 class Nonogram(object):
@@ -50,9 +53,6 @@ class Nonogram(object):
     @staticmethod
     def calc_fitness(self):
         """Returns the fitness for a particular grid"""
-
-        SQUARE_PENALTY = 1
-        GROUP_PENALTY = 2
 
         score = 0
 
@@ -158,7 +158,6 @@ def create_population(board_size, population_size):
 def reject_unfit(population, reject_percentage):
     """Returns a new list with the most fit individuals in the
     reject_percentage"""
-    population.sort(key=lambda individual: individual.fitness)
     return population[0:floor((reject_percentage / 100) * len(population))]
 
 
@@ -170,27 +169,38 @@ def calc_total_fit(population):
     return total_fitness_score
 
 
-def roulette_wheel_select(candidates):
-    """ Returns an individual from population and its index in a list.
-    The chance of being selected is proportional to the individual fitness."""
-    fitness_range = sum([chromosome.fitness for chromosome in candidates])
-    roulette_arrow = uniform(0, fitness_range)
-    current = 0
-    for index, chromosome in enumerate(candidates):
-        current += chromosome.fitness
-        if current > roulette_arrow:
-            return candidates.pop(index)
+# def roulette_wheel_select(candidates):
+#     """ Returns an individual from population and its index in a list.
+#     The chance of being selected is proportional to the individual fitness."""
+#     # TODO: Unfortuantely doesn't work as expected rn
+#     print("ROULLETE WHEEL")
+#     a = range(len(candidates))
+#     lambd = sum(a) / len(candidates)
+#     print("lambda = %f" % lambd)
+#     index = expovariate(1 / lambd)
+#     print(index)
+#     return candidates.pop(int(index))
+#     # roulette_arrow = uniform(0, fitness_range)
+#     # current = 0
+#     # for index, chromosome in enumerate(candidates):
+#     #     if chromosome.fitness == 0:
+#     #         # treat perfect solution as having fitness_score of 1
+#     #         current += fitness_range - 1
+#     #     else:
+#     #         current += chromosome.fitness
+#     #     if current > roulette_arrow:
+#     #         return candidates.pop(index)
 
 
 def mate(candidates, board_size):
     """ Returns 2 offsprings by mating 2 randomly choosen candidates """
     print("\nStarting crossover")
-    #print(candidates)
+    # print(candidates)
 
     chromosome1 = list(
-        chain.from_iterable(roulette_wheel_select(candidates).grid))
+        chain.from_iterable(choice(candidates).grid))
     chromosome2 = list(
-        chain.from_iterable(roulette_wheel_select(candidates).grid))
+        chain.from_iterable(choice(candidates).grid))
 
     offspring1, offspring2 = single_point_crossover(chromosome1, chromosome2)
     return Nonogram(
@@ -240,8 +250,8 @@ def ga_algorithm(board_size, population_size):
     draw_population(population, 'pics/gen_0/population/', 'nono')
 
     for i in range(0, GEN_ITERATIONS):
-
         print("Rejecting unfit candidates \n")
+        population.sort(key=lambda individual: individual.fitness)
         population = reject_unfit(population, 50)
         path = 'pics/gen_' + str(i) + '/'
         draw_population(population, path + 'fit_population/', 'fit_nono')
@@ -255,7 +265,7 @@ def ga_algorithm(board_size, population_size):
         draw_population(next_gen, path + 'population/', 'nono')
         population = next_gen
 
-    # mutation(next_gen, population_size, board_size)
+        # mutation(next_gen, population_size, board_size)
 
 
 def draw_population(population, path, filename):
