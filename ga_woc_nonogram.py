@@ -119,7 +119,6 @@ class Nonogram(object):
             column_number are hardcoded for now."""
         # create random id
         self.nonogram_id = uuid.uuid4()
-        print("Creating board id: " + str(self.nonogram_id))
         self.row_numbers = [(2, ), (2, ), (2, )]
         self.column_numbers = [(1, 1), (3, ), (1, )]
         self.nonogram_size = nonogram_size
@@ -128,6 +127,8 @@ class Nonogram(object):
         else:
             self.grid = Nonogram.create_grid(square_list, nonogram_size)
         self.fitness = Nonogram.calc_fitness(self)
+        print("Creating board id: " + str(self.nonogram_id) + " fitness: " +
+              str(self.fitness))
 
     def draw_nonogram(self):
         """ Create an PNG format image of grid"""
@@ -197,10 +198,8 @@ def mate(candidates, board_size):
     print("\nStarting crossover")
     # print(candidates)
 
-    chromosome1 = list(
-        chain.from_iterable(choice(candidates).grid))
-    chromosome2 = list(
-        chain.from_iterable(choice(candidates).grid))
+    chromosome1 = list(chain.from_iterable(choice(candidates).grid))
+    chromosome2 = list(chain.from_iterable(choice(candidates).grid))
 
     offspring1, offspring2 = single_point_crossover(chromosome1, chromosome2)
     return Nonogram(
@@ -226,12 +225,12 @@ def single_point_crossover(chromosome1, chromosome2):
 
 
 def mutation(population, population_size, board_size):
-    mutation_rate = 0.01
+    mutation_rate = .01
     for index, board in enumerate(population):
         mutant = population[index]
         if random() <= mutation_rate:
             mutant1D = np.ravel(mutant.grid)
-            j = random.randint(0, len(mutant1D) - 1)
+            j = randint(0, len(mutant1D) - 1)
             if mutant1D[j] == 1:
                 mutant1D[j] = 0
             else:
@@ -242,6 +241,7 @@ def mutation(population, population_size, board_size):
                 for x in range(0, len(mutant1D), board_size)
             ]
             mutant.grid = chunks
+            mutant.fitness = Nonogram.calc_fitness(mutant)
 
 
 def ga_algorithm(board_size, population_size):
@@ -261,12 +261,12 @@ def ga_algorithm(board_size, population_size):
         next_gen = []
         while len(next_gen) < population_size:
             next_gen.extend(mate(population[:], board_size))
+
+        mutation(next_gen, population_size, board_size)
         print("NEW POPULATION")
         path = 'pics/gen_' + str(i + 1) + '/'
         draw_population(next_gen, path + 'population/', 'nono')
         population = next_gen
-
-        # mutation(next_gen, population_size, board_size)
 
 
 def draw_population(population, path, filename):
