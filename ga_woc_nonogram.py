@@ -233,9 +233,12 @@ def mate(candidates, board_size):
     chromosome2 = list(chain.from_iterable(choice(candidates).grid))
 
     offspring1, offspring2 = single_point_crossover(chromosome1, chromosome2)
-    return Nonogram(
-        board_size, square_list=offspring1), Nonogram(
-            board_size, square_list=offspring2)
+    board1 = Nonogram(board_size, square_list=offspring1)
+    board2 = Nonogram(board_size, square_list=offspring2)
+    if board1.fitness < board2.fitness:
+        return board1
+    else:
+        return board2
 
 
 def single_point_crossover(chromosome1, chromosome2):
@@ -277,12 +280,12 @@ def mutation(population, population_size, board_size):
 def ga_algorithm(board_size, population_size):
     """ga algorithm to find a solution for Nonogram puzzle"""
     population = create_population(board_size, population_size)
+    population.sort(key=lambda individual: individual.fitness)
     draw_population(population, 'pics/gen_0/population/', 'nono')
+    population_metrics(population, 0)
 
     for i in range(0, GEN_ITERATIONS):
         print("Rejecting unfit candidates \n")
-        population.sort(key=lambda individual: individual.fitness)
-        population_metrics(population, i)
         population = reject_unfit(population, REJECTION_RATE)
         path = 'pics/gen_' + str(i) + '/'
         draw_population(population, path + 'fit_population/', 'fit_nono')
@@ -290,7 +293,7 @@ def ga_algorithm(board_size, population_size):
         # Create new chromosomes until reaching POPUlATION_SIZE
         next_gen = []
         while len(next_gen) < population_size - 1:
-            next_gen.extend(mate(population[:], board_size))
+            next_gen.append(mate(population[:], board_size))
         mutation(next_gen, population_size, board_size)
         print("Create Adj Matrix\n")
         adj_matrix = wisdom_of_crowds(population)
@@ -298,8 +301,10 @@ def ga_algorithm(board_size, population_size):
         board = Nonogram(board_size)
         board.grid = wisdom_create_board(adj_matrix, THRESHOLD)
         next_gen.append(board)
+        next_gen.sort(key=lambda individual: individual.fitness)
         print("Create new board and extend to population")
         print("NEW POPULATION")
+        population_metrics(population, i + 1)
         path = 'pics/gen_' + str(i + 1) + '/'
         draw_population(next_gen, path + 'population/', 'nono')
         population = next_gen
@@ -325,7 +330,7 @@ def wisdom_of_crowds(boards):
                     adj_matrix[i][j] += 1
     for i in range(0, size):
         for j in range(0, size):
-            adj_matrix[i][j] /= pop_size
+            adj_matrix[i][j] /= len(boards)
     return adj_matrix
 
 
