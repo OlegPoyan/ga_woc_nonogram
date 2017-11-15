@@ -11,11 +11,12 @@ EMPTY = 0
 FILLED = 1
 POPULATION_SIZE = 20
 BOARD_SIZE = 3
-GEN_ITERATIONS = 10
+GEN_ITERATIONS = 25
 REJECTION_RATE = 80
 
 SQUARE_PENALTY = 1
 GROUP_PENALTY = 6
+THRESHOLD = 0.8
 
 
 class Nonogram(object):
@@ -119,6 +120,7 @@ class Nonogram(object):
             column_number are hardcoded for now."""
         # create random id
         self.nonogram_id = uuid.uuid4()
+        print("Creating board id: " + str(self.nonogram_id))
         self.row_numbers = [(2, ), (2, ), (2, )]
         self.column_numbers = [(1, 1), (3, ), (1, )]
         self.nonogram_size = nonogram_size
@@ -127,8 +129,6 @@ class Nonogram(object):
         else:
             self.grid = Nonogram.create_grid(square_list, nonogram_size)
         self.fitness = Nonogram.calc_fitness(self)
-        print("Creating board id: " + str(self.nonogram_id) + " fitness: " +
-              str(self.fitness))
 
     def draw_nonogram(self):
         """ Create an PNG format image of grid"""
@@ -154,32 +154,28 @@ class Nonogram(object):
 def population_metrics(boards, generation):
     population = len(boards)
     best = boards[0].fitness
-    worst = boards[population - 1].fitness
+    worst = boards[population-1].fitness
     average = 0
     median = 0
     buffer = 0
     standard_deviation = 0
     fitnesses = []
     # find average
-    for pop_size in range(0, population):
+    for pop_size in range (0, population):
         buffer += boards[pop_size].fitness
         fitnesses.append(boards[pop_size].fitness)
     average = buffer / population
     # calculate median
-    if (population % 2 == 0):
-        median = (boards[int(population / 2)].fitness +
-                  boards[int(population / 2 + 1)].fitness) / 2
+    if (population%2 == 0):
+        median = (boards[int(population/2)].fitness + boards[int(population/2+1)].fitness) / 2
     else:
-        median = boards[int(population / 2)].fitness
-    standard_deviation = np.std(fitnesses, ddof=1)
-    print(standard_deviation)
+        median = boards[int(population/2)].fitness
+    standard_deviation = np.std(fitnesses, ddof = 1)
+    print (standard_deviation)
     file = open('nonogram.log', 'a')
-    line_of_text = str(generation) + " " + str(best) + " " + str(
-        average) + " " + str(worst) + " " + str(median) + " " + str(
-            standard_deviation) + "\n"
-    file.write(line_of_text)
+    line_of_text = str(generation) + " " + str(best) + " " + str(average) + " " + str(worst) + " " + str(median) + " " + str(standard_deviation) + "\n"
+    file.write (line_of_text)
     file.close()
-
 
 def create_population(board_size, population_size):
     """Returns a list of randomly filled Nonogram puzzle objects"""
@@ -271,7 +267,6 @@ def mutation(population, population_size, board_size):
                 for x in range(0, len(mutant1D), board_size)
             ]
             mutant.grid = chunks
-            mutant.fitness = Nonogram.calc_fitness(mutant)
 
 
 def ga_algorithm(board_size, population_size):
@@ -289,9 +284,16 @@ def ga_algorithm(board_size, population_size):
 
         # Create new chromosomes until reaching POPUlATION_SIZE
         next_gen = []
-        while len(next_gen) < population_size:
+        while len(next_gen) < population_size-1:
             next_gen.extend(mate(population[:], board_size))
         mutation(next_gen, population_size, board_size)
+        print("Create Adj Matrix\n")
+        adj_matrix = wisdom_of_crowds(population)
+        print(adj_matrix)
+        board = Nonogram(board_size)
+        board.grid = wisdom_create_board(adj_matrix, THRESHOLD)
+        next_gen.append(board)
+        print("Create new board and extend to population")
         print("NEW POPULATION")
         path = 'pics/gen_' + str(i + 1) + '/'
         draw_population(next_gen, path + 'population/', 'nono')
@@ -307,5 +309,31 @@ def draw_population(population, path, filename):
         image.save(path + filename + "_%d.png" % index)
         print("Board #" + str(index) + " " + str(board.fitness))
 
+def wisdom_of_crowds(boards):
+    size = boards[0].nonogram_size
+    adj_matrix = [[0 for x in range (0, size)] for y in range (0, size)]
+    for pop_size in range (0, len(boards)):
+        for i in range (0, size):
+            for j in range (0, size):
+                if (boards[pop_size].grid[i][j] == 1):
+                    adj_matrix[i][j] += 1
+    for i in range (0, size):
+        for j in range (0, size):
+            adj_matrix[i][j] /= pop_size
+    return adj_matrix
+
+def wisdom_create_board(adj_matrix, threshold):
+    size = len(adj_matrix)
+    board = [[0 for x in range (0, size)] for y in range (0, size)]
+    for i in range (0, size):
+        for j in range (0, size):
+            if (adj_matrix[i][j] <= 1-threshold):
+                board[i][j] = 0
+            if (adj_matrix[i][j] > threshold):
+                board[i][j] = 1
+            else:
+                board[i][j] = randint(0, 1)
+    print (board)
+    return board
 
 ga_algorithm(BOARD_SIZE, POPULATION_SIZE)
