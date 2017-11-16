@@ -9,14 +9,14 @@ import numpy as np
 
 EMPTY = 0
 FILLED = 1
-POPULATION_SIZE = 20
-BOARD_SIZE = 3
-GEN_ITERATIONS = 25
-REJECTION_RATE = 80
+POPULATION_SIZE = 25
+BOARD_SIZE = 10
+GEN_ITERATIONS = 50
+REJECTION_RATE = 50
 
 SQUARE_PENALTY = 1
 GROUP_PENALTY = 6
-THRESHOLD = 0.8
+THRESHOLD = 0.7
 
 
 class Nonogram(object):
@@ -120,16 +120,18 @@ class Nonogram(object):
             column_number are hardcoded for now."""
         # create random id
         self.nonogram_id = uuid.uuid4()
-        self.row_numbers = [(2, ), (2, ), (2, )]
-        self.column_numbers = [(1, 1), (3, ), (1, )]
+        self.row_numbers = [(3, 3), (2, 4, 2), (1, 1), (1, 2, 2, 1), (1, 1, 1), (2, 2, 2), (1, 1), (1, 2, 1), (2, 2), (6, )]
+        #self.row_numbers = [(2, ), (2, ), (2, )]
+        self.column_numbers = [(5, ), (2, 4), (1, 1, 2), (2, 1, 1), (1, 2, 1, 1), (1, 1, 1, 1, 1), (2, 1, 1), (1, 2), (2, 4), (5, )]
+        #self.column_numbers = [(1, 1), (3, ), (1, )]
         self.nonogram_size = nonogram_size
         if square_list is None:
             self.grid = Nonogram.create_rand_grid(nonogram_size)
         else:
             self.grid = Nonogram.create_grid(square_list, nonogram_size)
         self.fitness = Nonogram.calc_fitness(self)
-        print("Creating board id: " + str(self.nonogram_id) + " fitness: " +
-              str(self.fitness))
+        #print("Creating board id: " + str(self.nonogram_id) + " fitness: " +
+         #     str(self.fitness))
 
     def draw_nonogram(self):
         """ Create an PNG format image of grid"""
@@ -173,7 +175,7 @@ def population_metrics(boards, generation):
     else:
         median = boards[int(population / 2)].fitness
     standard_deviation = np.std(fitnesses, ddof=1)
-    # print(standard_deviation)
+    #print(standard_deviation)
     file = open('nonogram.log', 'a')
     line_of_text = str(generation) + " " + str(best) + " " + str(
         average) + " " + str(worst) + " " + str(median) + " " + str(
@@ -243,32 +245,41 @@ def mate(candidates, board_size):
 
 def single_point_crossover(chromosome1, chromosome2):
     """ Returns 2 chromosomes by randomly swapping genes """
-    print(chromosome1)
-    print(chromosome2)
+    #print(chromosome1)
+    #print(chromosome2)
     chromosome_len = len(chromosome1)
-    crossover_point = randint(0, chromosome_len)
-    print(crossover_point)
-    offspring1 = chromosome1[0:crossover_point] + chromosome2[crossover_point:
+    crossover_begin = randint(0,chromosome_len)
+    crossover_point = randint(crossover_begin, chromosome_len)
+    crossover_end = randint(crossover_point, chromosome_len)
+    #print(crossover_point)
+    offspring1 = chromosome1[0:crossover_begin] + chromosome2[crossover_begin:crossover_point] + chromosome1[crossover_point:
+    crossover_end] + chromosome2[crossover_end:chromosome_len]
+    offspring2 = chromosome2[0:crossover_begin] + chromosome1[crossover_begin:crossover_point] + chromosome2[crossover_point:
+    crossover_end] + chromosome1[crossover_end:chromosome_len]
+    """offspring1 = chromosome1[0:crossover_point] + chromosome2[crossover_point:
                                                               chromosome_len]
     offspring2 = chromosome2[0:crossover_point] + chromosome1[crossover_point:
-                                                              chromosome_len]
-    print("CROSSOVER RESULT")
-    print(offspring1)
-    print(offspring2)
+                                                              chromosome_len]"""
+    #print("CROSSOVER RESULT")
+    #print(offspring1)
+    #print(offspring2)
     return offspring1, offspring2
 
 
-def mutation(population, population_size, board_size):
-    mutation_rate = 0.01
+def mutation(population, board_size):
+    mutation_rate = 0.25
     for index, board in enumerate(population):
         mutant = population[index]
         if random() <= mutation_rate:
             mutant1D = np.ravel(mutant.grid)
-            j = randint(0, len(mutant1D) - 1)
-            if mutant1D[j] == 1:
-                mutant1D[j] = 0
-            else:
-                mutant1D[j] = 1
+            i= 0
+            while i < board_size:
+                j = randint(0, len(mutant1D) - 1)
+                if mutant1D[j] == 1:
+                    mutant1D[j] = 0
+                else:
+                    mutant1D[j] = 1
+                i +=1
             mutant1D = mutant1D.tolist()
             chunks = [
                 mutant1D[x:x + board_size]
@@ -294,17 +305,18 @@ def ga_algorithm(board_size, population_size):
         next_gen = []
         while len(next_gen) < population_size - 1:
             next_gen.append(mate(population[:], board_size))
-        mutation(next_gen, population_size, board_size)
+        mutation(next_gen, board_size)
         print("Create Adj Matrix\n")
         adj_matrix = wisdom_of_crowds(population)
         print(adj_matrix)
         board = Nonogram(board_size)
         board.grid = wisdom_create_board(adj_matrix, THRESHOLD)
+        board.fitness = Nonogram.calc_fitness(board)
         next_gen.append(board)
         next_gen.sort(key=lambda individual: individual.fitness)
         print("Create new board and extend to population")
         print("NEW POPULATION")
-        population_metrics(next_gen, i + 1)
+        population_metrics(population, i + 1)
         path = 'pics/gen_' + str(i + 1) + '/'
         draw_population(next_gen, path + 'population/', 'nono')
         population = next_gen
@@ -341,11 +353,11 @@ def wisdom_create_board(adj_matrix, threshold):
         for j in range(0, size):
             if (adj_matrix[i][j] <= 1 - threshold):
                 board[i][j] = 0
-            if (adj_matrix[i][j] > threshold):
+            elif (adj_matrix[i][j] > threshold):
                 board[i][j] = 1
             else:
                 board[i][j] = randint(0, 1)
-    print(board)
+    print("wisdom ", board)
     return board
 
 
