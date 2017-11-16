@@ -173,7 +173,7 @@ def population_metrics(boards, generation):
     else:
         median = boards[int(population / 2)].fitness
     standard_deviation = np.std(fitnesses, ddof=1)
-    print(standard_deviation)
+    # print(standard_deviation)
     file = open('nonogram.log', 'a')
     line_of_text = str(generation) + " " + str(best) + " " + str(
         average) + " " + str(worst) + " " + str(median) + " " + str(
@@ -304,7 +304,7 @@ def ga_algorithm(board_size, population_size):
         next_gen.sort(key=lambda individual: individual.fitness)
         print("Create new board and extend to population")
         print("NEW POPULATION")
-        population_metrics(population, i + 1)
+        population_metrics(next_gen, i + 1)
         path = 'pics/gen_' + str(i + 1) + '/'
         draw_population(next_gen, path + 'population/', 'nono')
         population = next_gen
