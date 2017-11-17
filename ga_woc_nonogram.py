@@ -6,13 +6,14 @@ import uuid
 import os
 from PIL import Image, ImageDraw
 import numpy as np
+import time
 
 EMPTY = 0
 FILLED = 1
-POPULATION_SIZE = 25
+POPULATION_SIZE = 100
 BOARD_SIZE = 10
-GEN_ITERATIONS = 50
-REJECTION_RATE = 50
+GEN_ITERATIONS = 150
+REJECTION_RATE = 80
 
 SQUARE_PENALTY = 1
 GROUP_PENALTY = 6
@@ -290,6 +291,9 @@ def mutation(population, board_size):
 
 def ga_algorithm(board_size, population_size):
     """ga algorithm to find a solution for Nonogram puzzle"""
+
+    # Start timer to measure performance
+    t0 = time.time()
     population = create_population(board_size, population_size)
     population.sort(key=lambda individual: individual.fitness)
     draw_population(population, 'pics/gen_0/population/', 'nono')
@@ -316,10 +320,17 @@ def ga_algorithm(board_size, population_size):
         next_gen.sort(key=lambda individual: individual.fitness)
         print("Create new board and extend to population")
         print("NEW POPULATION")
-        population_metrics(population, i + 1)
+        population_metrics(next_gen, i + 1)
         path = 'pics/gen_' + str(i + 1) + '/'
         draw_population(next_gen, path + 'population/', 'nono')
         population = next_gen
+
+    t1 = time.time()
+    file = open('nonogram.log', 'a')
+    line_of_text = "Running time: " + str(t1 - t0)
+    file.write(line_of_text)
+    file.close()
+
 
 
 def draw_population(population, path, filename):
